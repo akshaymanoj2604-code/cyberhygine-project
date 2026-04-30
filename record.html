@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Record Video</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; text-align: center; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        video { width: 100%; max-width: 640px; border-radius: 8px; margin: 20px 0; }
+        .btn { background-color: #007bff; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; margin: 10px; font-size: 16px; }
+        .btn:hover { background-color: #0056b3; }
+        .btn.danger { background-color: #dc3545; }
+        .btn.danger:hover { background-color: #c82333; }
+        .btn.success { background-color: #28a745; }
+        .btn.success:hover { background-color: #218838; }
+        .status { margin: 20px 0; font-weight: bold; }
+        .recording { color: red; }
+        .stopped { color: green; }
+        #preview { display: none; }
+        .loading { color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Video Recording Session</h1>
+        <div id="status" class="status">Click "Start Recording" to begin</div>
+
+        <video id="video" autoplay muted></video>
+        <video id="preview" controls></video>
+
+        <div id="controls">
+            <button id="startBtn" class="btn" onclick="startRecording()">Start Recording</button>
+            <button id="stopBtn" class="btn danger" onclick="stopRecording()" disabled>Stop Recording</button>
+            <button id="uploadBtn" class="btn success" onclick="uploadRecording()" style="display: none;">Upload Recording</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://your-backend-url.herokuapp.com'; // Replace with your backend URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token') || 'default-token'; // Get token from URL
+
+        let mediaRecorder;
+        let recordedChunks = [];
+        let stream;
+
+        async function startRecording() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                document.getElementById('video').srcObject = stream;
+
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        recordedChunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    recordedChunks = [];
+
+                    const url = URL.createObjectURL(blob);
+                    const preview = document.getElementById('preview');
+                    preview.src = url;
+                    preview.style.display = 'block';
+                    document.getElementById('video').style.display = 'none';
+                    document.getElementById('uploadBtn').style.display = 'inline-block';
+                };
+
+                mediaRecorder.start();
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = false;
+                document.getElementById('status').textContent = 'Recording...';
+                document.getElementById('status').className = 'status recording';
+
+            } catch (error) {
+                console.error('Error starting recording:', error);
+                alert('Error accessing camera/microphone. Please ensure permissions are granted.');
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                stream.getTracks().forEach(track => track.stop());
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('stopBtn').disabled = true;
+                document.getElementById('status').textContent = 'Recording stopped. Preview available below.';
+                document.getElementById('status').className = 'status stopped';
+            }
+        }
+
+        async function uploadRecording() {
+            const preview = document.getElementById('preview');
+            if (!preview.src) {
+                alert('No recording to upload');
+                return;
+            }
+
+            // Convert blob URL to blob
+            const response = await fetch(preview.src);
+            const blob = await response.blob();
+
+            const formData = new FormData();
+            formData.append('video', blob, 'recording.webm');
+
+            document.getElementById('status').textContent = 'Uploading...';
+            document.getElementById('uploadBtn').disabled = true;
+
+            try {
+                const uploadResponse = await fetch(`${API_BASE}/upload/${token}`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await uploadResponse.json();
+                if (result.success) {
+                    document.getElementById('status').textContent = 'Recording uploaded successfully!';
+                    document.getElementById('uploadBtn').style.display = 'none';
+                } else {
+                    throw new Error(result.error || 'Upload failed');
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                document.getElementById('status').textContent = 'Upload failed. Please try again.';
+                document.getElementById('uploadBtn').disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

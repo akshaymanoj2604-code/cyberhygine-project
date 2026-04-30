@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Recorder Admin</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; text-align: center; }
+        .btn { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 10px 0; }
+        .btn:hover { background-color: #0056b3; }
+        .session-list { margin-top: 20px; }
+        .session-item { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 4px; }
+        .session-url { word-break: break-all; background: #f8f9fa; padding: 5px; border-radius: 4px; margin: 5px 0; }
+        .copy-btn { background-color: #28a745; margin-left: 10px; }
+        .copy-btn:hover { background-color: #218838; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Video Recorder Admin Panel</h1>
+        <button class="btn" onclick="createSession()">Create New Recording Session</button>
+        <div id="new-session" style="display: none;">
+            <h3>New Recording Link:</h3>
+            <div id="recording-url" class="session-url"></div>
+            <button class="btn copy-btn" onclick="copyToClipboard()">Copy Link</button>
+        </div>
+
+        <div class="session-list">
+            <h2>Recording Sessions</h2>
+            <div id="sessions-list">
+                <!-- Sessions will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function createSession() {
+            try {
+                const response = await fetch('/admin/create_session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('recording-url').textContent = data.recording_url;
+                    document.getElementById('new-session').style.display = 'block';
+                    loadSessions();
+                }
+            } catch (error) {
+                console.error('Error creating session:', error);
+            }
+        }
+
+        function copyToClipboard() {
+            const url = document.getElementById('recording-url').textContent;
+            navigator.clipboard.writeText(url).then(() => {
+                alert('Link copied to clipboard!');
+            });
+        }
+
+        async function loadSessions() {
+            try {
+                const response = await fetch('/admin');
+                const html = await response.text();
+                // Extract sessions list from the HTML (simplified)
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const sessionsList = doc.querySelector('.session-list');
+                if (sessionsList) {
+                    document.getElementById('sessions-list').innerHTML = sessionsList.innerHTML;
+                }
+            } catch (error) {
+                console.error('Error loading sessions:', error);
+            }
+        }
+
+        // Load sessions on page load
+        loadSessions();
+    </script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Details</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        .recording-item { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 4px; }
+        .btn { background-color: #007bff; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        .btn:hover { background-color: #0056b3; }
+        .verified { color: green; }
+        .unverified { color: orange; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Recording Session: {{ session.token }}</h1>
+        <p>Created: {{ session.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+
+        <h2>Recordings</h2>
+        {% for recording in session.recordings %}
+        <div class="recording-item">
+            <strong>{{ recording.original_filename }}</strong>
+            <span class="{% if recording.verified %}verified{% else %}unverified{% endif %}">
+                ({% if recording.verified %}Verified{% else %}Unverified{% endif %})
+            </span>
+            <br>Uploaded: {{ recording.uploaded_at.strftime('%Y-%m-%d %H:%M:%S') }}
+            <br>
+            {% if not recording.verified %}
+            <button class="btn" onclick="verifyRecording({{ recording.id }})">Verify</button>
+            {% endif %}
+            <a href="{{ url_for('download_file', filename=recording.filename) }}" class="btn">Download</a>
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        async function verifyRecording(recordingId) {
+            try {
+                const response = await fetch(`/admin/verify/${recordingId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    location.reload();
+                }
+            } catch (error) {
+                console.error('Error verifying recording:', error);
+            }
+        }
+    </script>
+</body>
+</html>

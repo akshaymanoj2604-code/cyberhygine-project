@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Recorder Admin</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; text-align: center; }
+        .btn { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 10px 0; }
+        .btn:hover { background-color: #0056b3; }
+        .session-list { margin-top: 20px; }
+        .session-item { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 4px; }
+        .session-url { word-break: break-all; background: #f8f9fa; padding: 5px; border-radius: 4px; margin: 5px 0; }
+        .copy-btn { background-color: #28a745; margin-left: 10px; }
+        .copy-btn:hover { background-color: #218838; }
+        .recordings { margin-top: 10px; }
+        .recording-item { background: #f8f9fa; padding: 10px; margin: 5px 0; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
+        .verified { color: green; }
+        .unverified { color: orange; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Video Recorder Admin Panel</h1>
+        <button class="btn" onclick="createSession()">Create New Recording Session</button>
+        <div id="new-session" style="display: none;">
+            <h3>New Recording Link:</h3>
+            <div id="recording-url" class="session-url"></div>
+            <button class="btn copy-btn" onclick="copyToClipboard()">Copy Link</button>
+        </div>
+
+        <div class="session-list">
+            <h2>Recording Sessions</h2>
+            {% for session in sessions %}
+            <div class="session-item">
+                <strong>Session Token:</strong> {{ session.token }}<br>
+                <strong>Created:</strong> {{ session.created_at.strftime('%Y-%m-%d %H:%M:%S') }}<br>
+                <strong>Recording URL:</strong> <span class="session-url">{{ url_for('record', token=session.token, _external=True) }}</span>
+                <button class="btn copy-btn" onclick="copyToClipboard('{{ url_for('record', token=session.token, _external=True) }}')">Copy</button>
+                <div class="recordings">
+                    <h4>Recordings:</h4>
+                    {% for recording in session.recordings %}
+                    <div class="recording-item">
+                        <div>
+                            <strong>{{ recording.original_filename }}</strong> 
+                            <span class="{% if recording.verified %}verified{% else %}unverified{% endif %}">
+                                ({% if recording.verified %}Verified{% else %}Unverified{% endif %})
+                            </span>
+                            <br>Uploaded: {{ recording.uploaded_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                        </div>
+                        <div>
+                            {% if not recording.verified %}
+                            <button class="btn" onclick="verifyRecording({{ recording.id }})">Verify</button>
+                            {% endif %}
+                            <a href="{{ url_for('download_file', filename=recording.filename) }}" class="btn">Download</a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script>
+        async function createSession() {
+            try {
+                const response = await fetch('/admin/create_session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('recording-url').textContent = data.recording_url;
+                    document.getElementById('new-session').style.display = 'block';
+                    setTimeout(() => location.reload(), 1000); // Reload to show new session
+                }
+            } catch (error) {
+                console.error('Error creating session:', error);
+            }
+        }
+
+        function copyToClipboard(url = null) {
+            const text = url || document.getElementById('recording-url').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Link copied to clipboard!');
+            });
+        }
+
+        async function verifyRecording(recordingId) {
+            try {
+                const response = await fetch(`/admin/verify/${recordingId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    location.reload();
+                }
+            } catch (error) {
+                console.error('Error verifying recording:', error);
+            }
+        }
+    </script>
+</body>
+</html>

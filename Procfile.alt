@@ -1,0 +1,2 @@
+# Alternative Procfile if gunicorn isn't detected
+web: python app.py
